@@ -16,7 +16,8 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use(parser.urlencoded({ extended: true }));
 app.use(parser.json());
-app.use(flash());
+app.use(flash());  // for flashing error messaging to the user
+// app.use(flash());
 
 app.use(session({
     secret:'superSekretKitteh',
@@ -33,22 +34,36 @@ let name = '';
 mongoose.connect('mongodb://localhost:27017/basic_mongoose', { useNewUrlParser: true });
 mongoose.connection.on('connected', () => console.log('MongoDB connected'));
 
-// schema
+// Create a schema for Users (UserSchema)
 const UserSchema = new mongoose.Schema({
 // const UserSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'a name is required'],
         trim: true,
-      },
-    age: Number
-})
-mongoose.model('User', UserSchema); // We are setting this Schema in our Models as 'User'
-const User = mongoose.model('User', UserSchema) // We are retrieving this Schema from our Models, named 'User'
+    },
+    age: {
+        type: Number,
+        required: true,
+    },
+    pets: {
+        name: {
+            type: String,
+        },
+        type: {
+            type: String,
+        }
+    }
+}, {timestamps: true})
 
-//routing
-    //root route - display all
-app.get('/', (request, response) => {
+mongoose.model('User', UserSchema); // We are setting this Schema in our Models as 'User'
+const User = mongoose.model('User'); // We are retrieving this Schema from our Models, named 'User'
+// module.exports = mongoose.model('User');  // this is an example of how we would call the above line when we modularize
+
+// routing
+    // root route - display all
+app.get('/', (request, response) => {  
+
     console.log('getting to index');
     // This is where we will retrieve the users from the database 
     // and include them in the view page we will be rendering.
@@ -62,7 +77,7 @@ app.get('/', (request, response) => {
         })
         // if there is an error console.log that something went wrong!
         .catch(error => {
-            console.log('something went wrong');
+            console.log(`something went wrong`);
             for (let key in error.errors) {
                 request.flash('get_error', error.errors[key].message)
                 console.log(error.errors[key].message);
@@ -70,29 +85,34 @@ app.get('/', (request, response) => {
         });
 });
 
+
+// Add new user form page
+app.get('/user/new', (request, response) => {
+    console.log(`getting to new user page`);
+    response.render('new', {title: 'Add New User'});
+});
+
 // Add User Request 
 // When the user presses the submit button on index.ejs it should send a post request to '/users'.
 // In this route we should add the user to the database and then redirect to the root route (index view)
 
 // create new user form
-app.post('/user/new', function(request, response) {
+app.post('/user', function(request, response) {
     console.log("POST DATA", request.body);
     // This is where we would add the user from req.body to the database.
     // create a new User with the name and age corresponding to those from req.body
     // const user = new User({name: request.body.name, age: request.body.age});
-
     User.create(request.body)
         .then(user => {
-            console.log('created ', user);
-            console.log('successfully added a user!');
+            console.log(`successfully created a user! ${user}`);
             response.redirect('/');
         })
         .catch(error => {
             for (let key in error.errors) {
                 request.flash('create_error', error.errors[key].message);
             }
-            console.log('something went wrong');
-            response.redirect('/user/new');
+            console.log(`something went wrong in the /user post route`);
+            response.redirect('/user');
         });
 })
 
@@ -100,8 +120,8 @@ app.get('/user/:_id', (request, response) => {
     const which = request.params._id;
     User.find({_id:which})
         .then((basic_mongoose) => {
-            console.log(basic_mongoose);
             users = basic_mongoose;
+            // console.log('basic_mongoose: ', basic_mongoose);
             response.render('view', {user, title: 'View user page'});
         })
         // if there is an error console.log that something went wrong!
